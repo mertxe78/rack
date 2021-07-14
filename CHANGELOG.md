@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. For info on
 
 ## [3.0.0] - Unreleased
 
+### Security
+
+- Do not use semicolon as GET parameter separator. ([#1733](https://github.com/rack/rack/pull/1733), [@jeremyevans](https://github.com/jeremyevans))
+
 ### Added
 
 - `Rack::RewindableInput` supports size. ([@ahorek](https://github.com/ahorek))
@@ -19,13 +23,18 @@ All notable changes to this project will be documented in this file. For info on
 - `Rack::Request#[]` and `#[]=` now warn even in non-verbose mode. ([#1277](https://github.com/rack/rack/issues/1277), [@jeremyevans](https://github.com/jeremyevans))
 - Decrease default allowed parameter recursion level from 100 to 32. ([#1640](https://github.com/rack/rack/issues/1640), [@jeremyevans](https://github.com/jeremyevans))
 - Attempting to parse a multipart response with an empty body now raises Rack::Multipart::EmptyContentError. ([#1603](https://github.com/rack/rack/issues/1603), [@jeremyevans](https://github.com/jeremyevans))
+- `Rack::Utils.secure_compare` uses OpenSSL's faster implementation if available. ([#1711](https://github.com/rack/rack/pull/1711), [@bdewater](https://github.com/bdewater))
 
 ### Fixed
 
+- Make Rack::MockResponse handle non-hash headers. ([#1629](https://github.com/rack/rack/issues/1629), [@jeremyevans](https://github.com/jeremyevans))
 - TempfileReaper now deletes temp files if application raises an exception. ([#1679](https://github.com/rack/rack/issues/1679), [@jeremyevans](https://github.com/jeremyevans))
 - Fix using Rack::Session::Cookie with coder: Rack::Session::Cookie::Base64::{JSON,Zip}. ([#1666](https://github.com/rack/rack/issues/1666), [@jeremyevans](https://github.com/jeremyevans))
 - Avoid NoMethodError when accessing Rack::Session::Cookie without requiring delegate first. ([#1610](https://github.com/rack/rack/issues/1610), [@onigra](https://github.com/onigra))
 - Handle cookies with values that end in '=' ([#1645](https://github.com/rack/rack/pull/1645), [@lukaso](https://github.com/lukaso))
+- Fix multipart filename generation for filenames that contain spaces. Encode spaces as "%20" instead of "+" which will be decoded properly by the multipart parser. ([#1736](https://github.com/rack/rack/pull/1645), [@muirdm](https://github.com/muirdm))
+- `Rack::Request#scheme` returns `ws` or `wss` when one of the `X-Forwarded-Scheme` / `X-Forwarded-Proto` headers is set to `ws` or `wss`, respectively. ([#1730](https://github.com/rack/rack/issues/1730), [@erwanst](https://github.com/erwanst))
+- `Rack::Request::Env#initialize` does not need to call `super()`. This was leftover from the creation of the `Env` module. Flatten the `Env` module into `Request` as it is unused outside. ([#1751](https://github.com/rack/rack/pull/1751)), [@agrberg](https://github.com/agrberg))
 
 ## [2.2.3] - 2020-06-15
 
@@ -124,7 +133,7 @@ All notable changes to this project will be documented in this file. For info on
 - Support for using `:SSLEnable` option when using WEBrick handler. (Gregor Melhorn)
 - Close response body after buffering it when buffering. ([@ioquatix](https://github.com/ioquatix))
 - Only accept `;` as delimiter when parsing cookies. ([@mrageh](https://github.com/mrageh))
-- `Utils::HeaderHash#clear` clears the name mapping as well. ([@raxoft](https://github.com/raxoft)) 
+- `Utils::HeaderHash#clear` clears the name mapping as well. ([@raxoft](https://github.com/raxoft))
 - Support for passing `nil` `Rack::Files.new`, which notably fixes Rails' current `ActiveStorage::FileServer` implementation. ([@ioquatix](https://github.com/ioquatix))
 
 ### Documentation
@@ -283,7 +292,7 @@ All notable changes to this project will be documented in this file. For info on
 - Handle `NULL` bytes in multipart filenames. ([@casperisfine](https://github.com/casperisfine))
 - Remove warnings due to miscapitalized global. ([@ioquatix](https://github.com/ioquatix))
 - Prevent exceptions caused by a race condition on multi-threaded servers. ([@sophiedeziel](https://github.com/sophiedeziel))
-- Add RDoc as an explicit depencency for `doc` group. ([@tonytonyjan](https://github.com/tonytonyjan))
+- Add RDoc as an explicit dependency for `doc` group. ([@tonytonyjan](https://github.com/tonytonyjan))
 - Record errors originating from `Multipart::Parser` in the `MethodOverride` middleware instead of letting them bubble up. ([@carlzulauf](https://github.com/carlzulauf))
 - Remove remaining use of removed `Utils#bytesize` method from the `File` middleware. ([@brauliomartinezlm](https://github.com/brauliomartinezlm))
 

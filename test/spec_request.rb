@@ -308,12 +308,12 @@ class RackRequestTest < Minitest::Spec
     req.params[:quux].must_equal "bla"
   end
 
-  it "use semi-colons as separators for query strings in GET" do
+  it "does not use semi-colons as separators for query strings in GET" do
     req = make_request(Rack::MockRequest.env_for("/?foo=bar&quux=b;la;wun=duh"))
     req.query_string.must_equal "foo=bar&quux=b;la;wun=duh"
-    req.GET.must_equal "foo" => "bar", "quux" => "b", "la" => nil, "wun" => "duh"
+    req.GET.must_equal "foo" => "bar", "quux" => "b;la;wun=duh"
     req.POST.must_be :empty?
-    req.params.must_equal "foo" => "bar", "quux" => "b", "la" => nil, "wun" => "duh"
+    req.params.must_equal "foo" => "bar", "quux" => "b;la;wun=duh"
   end
 
   it "limit the keys from the GET query string" do
@@ -667,6 +667,14 @@ class RackRequestTest < Minitest::Spec
     request.scheme.must_equal "http"
     request.wont_be :ssl?
 
+    request = make_request(Rack::MockRequest.env_for("/", 'HTTP_X_FORWARDED_SCHEME' => 'ws'))
+    request.scheme.must_equal "ws"
+    request.wont_be :ssl?
+
+    request = make_request(Rack::MockRequest.env_for("/", 'HTTP_X_FORWARDED_PROTO' => 'ws'))
+    request.scheme.must_equal "ws"
+    request.wont_be :ssl?
+
     request = make_request(Rack::MockRequest.env_for("/", 'HTTPS' => 'on'))
     request.scheme.must_equal "https"
     request.must_be :ssl?
@@ -695,12 +703,20 @@ class RackRequestTest < Minitest::Spec
     request.scheme.must_equal "https"
     request.must_be :ssl?
 
+    request = make_request(Rack::MockRequest.env_for("/", 'HTTP_X_FORWARDED_SCHEME' => 'wss'))
+    request.scheme.must_equal "wss"
+    request.must_be :ssl?
+
     request = make_request(Rack::MockRequest.env_for("/", 'HTTP_X_FORWARDED_PROTO' => 'https'))
     request.scheme.must_equal "https"
     request.must_be :ssl?
 
     request = make_request(Rack::MockRequest.env_for("/", 'HTTP_X_FORWARDED_PROTO' => 'https, http, http'))
     request.scheme.must_equal "https"
+    request.must_be :ssl?
+
+    request = make_request(Rack::MockRequest.env_for("/", 'HTTP_X_FORWARDED_PROTO' => 'wss'))
+    request.scheme.must_equal "wss"
     request.must_be :ssl?
   end
 

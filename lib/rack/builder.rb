@@ -78,8 +78,6 @@ module Rack
     #
     #   $ cat config.ru
     #
-    #   #\ -p 9393
-    #
     #   use Rack::ContentLength
     #   require './app.rb'
     #   run App
@@ -109,7 +107,7 @@ module Rack
 
     # Initialize a new Rack::Builder instance.  +default_app+ specifies the
     # default application if +run+ is not called later.  If a block
-    # is given, it is evaluted in the context of the instance.
+    # is given, it is evaluated in the context of the instance.
     def initialize(default_app = nil, &block)
       @use, @map, @run, @warmup, @freeze_app = [], nil, default_app, nil, false
       instance_eval(&block) if block_given?

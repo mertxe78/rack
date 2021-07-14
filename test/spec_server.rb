@@ -89,14 +89,14 @@ describe Rack::Server do
   end
 
   it "get options from ARGV" do
-    SPEC_ARGV[0..-1] = ['--debug', '-sthin', '--env', 'production', '-w', '-q', '-o', '127.0.0.1', '-O', 'NAME=VALUE', '-ONAME2', '-D']
+    SPEC_ARGV[0..-1] = ['--debug', '-sthin', '--env', 'production', '-w', '-q', '-o', 'localhost', '-O', 'NAME=VALUE', '-ONAME2', '-D']
     server = Rack::Server.new
     server.options[:debug].must_equal true
     server.options[:server].must_equal 'thin'
     server.options[:environment].must_equal 'production'
     server.options[:warn].must_equal true
     server.options[:quiet].must_equal true
-    server.options[:Host].must_equal '127.0.0.1'
+    server.options[:Host].must_equal 'localhost'
     server.options[:NAME].must_equal 'VALUE'
     server.options[:NAME2].must_equal true
     server.options[:daemonize].must_equal true
@@ -329,8 +329,8 @@ describe Rack::Server do
       app: app,
       environment: 'none',
       pid: pidfile.path,
-      Port: TCPServer.open('127.0.0.1', 0){|s| s.addr[1] },
-      Host: '127.0.0.1',
+      Port: TCPServer.open('localhost', 0){|s| s.addr[1] },
+      Host: 'localhost',
       Logger: WEBrick::Log.new(nil, WEBrick::BasicLog::WARN),
       AccessLog: [],
       daemonize: false,
@@ -339,9 +339,9 @@ describe Rack::Server do
     t = Thread.new { server.start { |s| Thread.current[:server] = s } }
     t.join(0.01) until t[:server] && t[:server].status != :Stop
     body = if URI.respond_to?(:open)
-             URI.open("http://127.0.0.1:#{server.options[:Port]}/") { |f| f.read }
+             URI.open("http://localhost:#{server.options[:Port]}/") { |f| f.read }
            else
-             open("http://127.0.0.1:#{server.options[:Port]}/") { |f| f.read }
+             open("http://localhost:#{server.options[:Port]}/") { |f| f.read }
            end
     body.must_equal 'success'
 
@@ -357,8 +357,8 @@ describe Rack::Server do
       app: app,
       environment: 'none',
       pid: pidfile.path,
-      Port: TCPServer.open('127.0.0.1', 0){|s| s.addr[1] },
-      Host: '127.0.0.1',
+      Port: TCPServer.open('localhost', 0){|s| s.addr[1] },
+      Host: 'localhost',
       Logger: WEBrick::Log.new(nil, WEBrick::BasicLog::WARN),
       AccessLog: [],
       daemonize: false,
@@ -369,9 +369,9 @@ describe Rack::Server do
     t = Thread.new { server.start { |s| Thread.current[:server] = s } }
     t.join(0.01) until t[:server] && t[:server].status != :Stop
 
-    uri = URI.parse("https://127.0.0.1:#{server.options[:Port]}/")
+    uri = URI.parse("https://localhost:#{server.options[:Port]}/")
 
-    Net::HTTP.start("127.0.0.1", uri.port, use_ssl: true,
+    Net::HTTP.start("localhost", uri.port, use_ssl: true,
       verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
 
       request = Net::HTTP::Get.new uri
@@ -388,21 +388,27 @@ describe Rack::Server do
   it "check pid file presence and running process" do
     pidfile = Tempfile.open('pidfile') { |f| f.write($$); break f }.path
     server = Rack::Server.new(pid: pidfile)
-    server.send(:pidfile_process_status).must_equal :running
+    with_stderr do |err|
+      lambda { server.send(:check_pid!) }.must_raise SystemExit
+      err.rewind
+      output = err.read
+      output.must_match(/already running \(pid: #{$$}, file: #{pidfile}\)/)
+    end
   end
 
   it "check pid file presence and dead process" do
     dead_pid = `echo $$`.to_i
     pidfile = Tempfile.open('pidfile') { |f| f.write(dead_pid); break f }.path
     server = Rack::Server.new(pid: pidfile)
-    server.send(:pidfile_process_status).must_equal :dead
+    server.send(:check_pid!)
+    ::File.exist?(pidfile).must_equal false
   end
 
   it "check pid file presence and exited process" do
     pidfile = Tempfile.open('pidfile') { |f| break f }.path
     ::File.delete(pidfile)
     server = Rack::Server.new(pid: pidfile)
-    server.send(:pidfile_process_status).must_equal :exited
+    server.send(:check_pid!)
   end
 
   it "check pid file presence and not owned process" do
@@ -410,7 +416,12 @@ describe Rack::Server do
     skip "cannot test if pid 1 owner matches current process (eg. docker/lxc)" if owns_pid_1
     pidfile = Tempfile.open('pidfile') { |f| f.write(1); break f }.path
     server = Rack::Server.new(pid: pidfile)
-    server.send(:pidfile_process_status).must_equal :not_owned
+    with_stderr do |err|
+      lambda { server.send(:check_pid!) }.must_raise SystemExit
+      err.rewind
+      output = err.read
+      output.must_match(/already running \(pid: 1, file: #{pidfile}\)/)
+    end
   end
 
   it "rewrite pid file when it does not reference a running process" do
@@ -430,8 +441,7 @@ describe Rack::Server do
       lambda { server.send(:write_pid) }.must_raise SystemExit
       err.rewind
       output = err.read
-      output.must_match(/already running/)
-      output.must_include pidfile
+      output.must_match(/already running \(pid: 1, file: #{pidfile}\)/)
     end
   end
 
@@ -442,8 +452,7 @@ describe Rack::Server do
       lambda { server.start }.must_raise SystemExit
       err.rewind
       output = err.read
-      output.must_match(/already running/)
-      output.must_include pidfile
+      output.must_match(/already running \(pid: 1, file: #{pidfile}\)/)
     end
   end
 

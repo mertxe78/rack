@@ -17,15 +17,19 @@ module Rack
     end
 
     self.ip_filter = lambda { |ip| /\A127\.0\.0\.1\Z|\A(10|172\.(1[6-9]|2[0-9]|30|31)|192\.168)\.|\A::1\Z|\Afd[0-9a-f]{2}:.+|\Alocalhost\Z|\Aunix\Z|\Aunix:/i.match?(ip) }
-    ALLOWED_SCHEMES = %w(https http).freeze
+
+    # The environment of the request.
+    attr_reader :env
+
+    ALLOWED_SCHEMES = %w(https http wss ws).freeze
     SCHEME_WHITELIST = ALLOWED_SCHEMES
     if Object.respond_to?(:deprecate_constant)
       deprecate_constant :SCHEME_WHITELIST
     end
 
     def initialize(env)
+      @env = env
       @params = nil
-      super(env)
     end
 
     def params
@@ -43,69 +47,59 @@ module Rack
       v
     end
 
-    module Env
-      # The environment of the request.
-      attr_reader :env
+    # Predicate method to test to see if `name` has been set as request
+    # specific data
+    def has_header?(name)
+      @env.key? name
+    end
 
-      def initialize(env)
-        @env = env
-        super()
-      end
+    # Get a request specific value for `name`.
+    def get_header(name)
+      @env[name]
+    end
 
-      # Predicate method to test to see if `name` has been set as request
-      # specific data
-      def has_header?(name)
-        @env.key? name
-      end
+    # If a block is given, it yields to the block if the value hasn't been set
+    # on the request.
+    def fetch_header(name, &block)
+      @env.fetch(name, &block)
+    end
 
-      # Get a request specific value for `name`.
-      def get_header(name)
-        @env[name]
-      end
+    # Loops through each key / value pair in the request specific data.
+    def each_header(&block)
+      @env.each(&block)
+    end
 
-      # If a block is given, it yields to the block if the value hasn't been set
-      # on the request.
-      def fetch_header(name, &block)
-        @env.fetch(name, &block)
-      end
+    # Set a request specific value for `name` to `v`
+    def set_header(name, v)
+      @env[name] = v
+    end
 
-      # Loops through each key / value pair in the request specific data.
-      def each_header(&block)
-        @env.each(&block)
+    # Add a header that may have multiple values.
+    #
+    # Example:
+    #   request.add_header 'Accept', 'image/png'
+    #   request.add_header 'Accept', '*/*'
+    #
+    #   assert_equal 'image/png,*/*', request.get_header('Accept')
+    #
+    # http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2
+    def add_header(key, v)
+      if v.nil?
+        get_header key
+      elsif has_header? key
+        set_header key, "#{get_header key},#{v}"
+      else
+        set_header key, v
       end
+    end
 
-      # Set a request specific value for `name` to `v`
-      def set_header(name, v)
-        @env[name] = v
-      end
+    # Delete a request specific value for `name`.
+    def delete_header(name)
+      @env.delete name
+    end
 
-      # Add a header that may have multiple values.
-      #
-      # Example:
-      #   request.add_header 'Accept', 'image/png'
-      #   request.add_header 'Accept', '*/*'
-      #
-      #   assert_equal 'image/png,*/*', request.get_header('Accept')
-      #
-      # http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2
-      def add_header(key, v)
-        if v.nil?
-          get_header key
-        elsif has_header? key
-          set_header key, "#{get_header key},#{v}"
-        else
-          set_header key, v
-        end
-      end
-
-      # Delete a request specific value for `name`.
-      def delete_header(name)
-        @env.delete name
-      end
-
-      def initialize_copy(other)
-        @env = other.env.dup
-      end
+    def initialize_copy(other)
+      @env = other.env.dup
     end
 
     module Helpers
@@ -144,7 +138,7 @@ module Rack
       # The port used to connect to the proxy.
       HTTP_X_FORWARDED_PORT = 'HTTP_X_FORWARDED_PORT'
 
-      # Another way for specifing https scheme was used.
+      # Another way for specifying https scheme was used.
       HTTP_X_FORWARDED_SSL = 'HTTP_X_FORWARDED_SSL'
 
       def body;            get_header(RACK_INPUT)                         end
@@ -427,7 +421,7 @@ module Rack
         if get_header(RACK_REQUEST_QUERY_STRING) == query_string
           get_header(RACK_REQUEST_QUERY_HASH)
         else
-          query_hash = parse_query(query_string, '&;')
+          query_hash = parse_query(query_string, '&')
           set_header(RACK_REQUEST_QUERY_STRING, query_string)
           set_header(RACK_REQUEST_QUERY_HASH, query_hash)
         end
@@ -643,7 +637,6 @@ module Rack
       end
     end
 
-    include Env
     include Helpers
   end
 end
